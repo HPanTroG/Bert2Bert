@@ -25,7 +25,7 @@ torch.backends.cudnn.benchmark = False
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     
-    parser.add_argument('-input_path', type = str, default = '../data/input.csv')
+    parser.add_argument('-input_path', type = str, default = '../data/examples.csv')
     parser.add_argument('-saved_model_path', type = str, default = '../saved_models/')
     parser.add_argument('-random_state', type = int, default = 12)
     parser.add_argument('-model_config', type = str, default = 'vinai/bertweet-base')
@@ -34,7 +34,7 @@ if __name__ == "__main__":
     parser.add_argument('-lr', type = float, default = 2e-5, help = 'learning rate')
     parser.add_argument('-exp_weight', type = float, default = 0.07)
     parser.add_argument('-max_len', type = int, default = 128)
-    parser.add_argument('-n_epochs', type = int, default = 1)
+    parser.add_argument('-n_epochs', type = int, default = 10)
     parser.add_argument('-n_folds', type = int, default = 5)
     parser.add_argument('-patience', type = int, default = 3)
     parser.add_argument('-test_size', type = int, default = 0.15)
@@ -43,8 +43,8 @@ if __name__ == "__main__":
     parser.add_argument('-sep_exp_token', type = str, default = ' _sep_exp_token_ ')
     parser.add_argument('-id_col', type = str, default = 'tweet_id')
     parser.add_argument('-text_col', type = str, default = 'tweet_text')
-    parser.add_argument('-label_col', type = str, default = 'corrected_label')
-    parser.add_argument('-exp_col', type = str, default = 'informative_content')
+    parser.add_argument('-label_col', type = str, default = 'tweet_label')
+    parser.add_argument('-exp_col', type = str, default = 'rationale_label')
     parser.add_argument('-device', type = str, default = 'cuda:1')
     parser.add_argument('-input_new_data_path', type = str, default = "../data/input_new_data.csv")
     parser.add_argument('-output_new_data_path', type = str, default = "../data/output_new_data.csv")

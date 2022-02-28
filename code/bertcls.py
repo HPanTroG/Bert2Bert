@@ -146,7 +146,7 @@ class BertCLS:
         self.model.to(self.args.device)
         
         # make prediction on test data
-        _, y_pred = self.predict(test_data, test_labels, criterion, batch_size = self.args.test_batch_size)
+        _, y_pred, _ = self.predict(test_data, test_labels, criterion, batch_size = self.args.test_batch_size)
         print("++++++++++++++++++++++++++++++++++++++++++++++++++")
         print("++ CLS F1: %.4f                           +" %(f1_score(test_labels, y_pred, average='macro')))
         print("++++++++++++++++++++++++++++++++++++++++++++++++++")
