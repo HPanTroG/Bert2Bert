@@ -3,7 +3,6 @@ import re
 import torch
 from tweet_preprocessing import tokenizeRawTweetText
 
-
 def convert_sents_to_ids_tensor(tokenizer, sents, pad_token = '<pad>'):
     
     """
@@ -128,7 +127,7 @@ def pad_sents(sents, pad_token):
 
 def max_pooling(y_values, data_slides, data, prob = False):
     """
-        # merge token-level labels to obtain labels at word-level
+        merge token-level labels to obtain labels at word-level
     """
     pooled_values = []
     
@@ -152,4 +151,5 @@ def preprocess_text(text):
     text = re.sub("^`|^\'|^\"|\'$|\"$|^(rt )", '', text).strip()
     text = re.sub("^: ", '', text)
     text = re.sub(" +", ' ', text).strip()
+    # text = re.sub(" ️ ", ' ', text).strip()
     return text

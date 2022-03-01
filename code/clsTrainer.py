@@ -10,10 +10,10 @@ import utils
 import time
 
 
-class BaseBert(nn.Module):
+class CLSModel(nn.Module):
     """base model"""
     def __init__(self, bert_config = "vinai/bertweet-base", hidden_size = 768, num_classes = 6):
-        super(BaseBert, self).__init__()
+        super(CLSModel, self).__init__()
         self.bert = AutoModel.from_pretrained(bert_config)
         self.dropout = nn.Dropout(0.1)
         self.linear = nn.Linear(self.bert.config.hidden_size, num_classes, bias = True)
@@ -23,7 +23,7 @@ class BaseBert(nn.Module):
         outputs = self.linear(self.dropout(outputs[1]))
         return outputs
 
-class BertCLS:
+class CLSTrainer:
     def __init__(self, data = None, labels = None, args = None):
         self.args = args 
         self.tokenizer = AutoTokenizer.from_pretrained(self.args.model_config)
@@ -103,7 +103,8 @@ class BertCLS:
         valid_data = np.array([self.tokenizer.cls_token +" " + x +" " + self.tokenizer.sep_token for x in valid_data])
         test_data = np.array([self.tokenizer.cls_token +" " + x +" " + self.tokenizer.sep_token for x in test_data])
 
-        self.model = BaseBert(self.args.model_config, num_classes = self.num_classes)
+        self.model = CLSModel(self.args.model_config, num_classes = self.num_classes)
+        
         self.optimizer = AdamW(self.model.parameters(), self.args.lr, eps = 1e-8)
 
         n_batches = int(np.ceil(len(train_data)/self.args.train_batch_size))
@@ -121,7 +122,7 @@ class BertCLS:
         best_epoch = {} 
         best_model_state_dict = None 
         best_loss = float('inf')
-        self.model.train()
+        # self.model.train()
         for epoch in range(self.args.n_epochs):
             begin_time = time.time()
             train_loss = self.fit(train_data, train_labels, self.args.train_batch_size, criterion)
@@ -139,7 +140,7 @@ class BertCLS:
                     best_model_state_dict = OrderedDict({k: v.cpu() for k, v in self.model.state_dict().items()})
                 if epoch - best_epoch['epoch']> self.args.patience:
                     break
-        self.model.eval()
+        # self.model.eval()
         print("+ Training ends!")
         print("+ Load best model {}---valid_loss: {}".format(best_epoch['epoch'], best_epoch['valid_loss']))
         self.model.load_state_dict(best_model_state_dict)
@@ -156,7 +157,7 @@ class BertCLS:
 
     def train(self, saved_model_path = None):
         train_data = np.array([self.tokenizer.cls_token +" " + x +" " + self.tokenizer.sep_token for x in self.data])
-        self.model = BaseBert(self.args.model_config, num_classes = self.num_classes)
+        self.model = CLSModel(self.args.model_config, num_classes = self.num_classes)
         self.optimizer = AdamW(self.model.parameters(), self.args.lr, eps = 1e-8)
 
         n_batches = int(np.ceil(len(train_data)/self.args.train_batch_size))
@@ -171,6 +172,7 @@ class BertCLS:
 
         train_labels = torch.tensor(self.labels, dtype = torch.long).to(self.args.device)
         self.model.train()
+        print("Training...")
         for epoch in range(self.args.n_epochs):
             begin_time = time.time()
             train_loss = self.fit(train_data, train_labels, self.args.train_batch_size, criterion)
@@ -184,30 +186,20 @@ class BertCLS:
         if saved_model_path is not None:
             print("Save model to path: {}".format(saved_model_path))
             torch.save(self.model.state_dict(), saved_model_path)
-        
+    
+    def load(self, saved_model_path = None):
+        try: 
+            self.model = CLSModel(self.args.model_config, num_classes = self.num_classes)
+            self.model.load_state_dict(torch.load(saved_model_path))
+        except Exception as e:
+            print("Exception")
+            print(e)
 
-    def classify_new_data(self, idx_label_map = {}, saved_model_path = None,  new_data = None, output_path = ""):
-        """classify new data"""
-        if saved_model_path is None:
-            print("No input saved model!!!!!")
-            return 
-
+    def classify(self, new_data):
         data = np.array([self.tokenizer.cls_token +" " + x +" " + self.tokenizer.sep_token for x in new_data])
-        self.model = BaseBert(self.args.model_config, num_classes = self.num_classes)
-        self.model.load_state_dict(torch.load(saved_model_path))
         self.model.to(self.args.device)
         self.model.eval()
         _, y_preds, y_probs = self.predict(self.data, batch_size = self.args.test_batch_size)
 
-        with open(output_path, "w") as f:
-            f.write("text\tpredicted_label\tpredicted_prob\n")
-            for txt, prepro_txt, y_label, y_prob in zip(new_data, data, y_preds, y_probs):
-                try:
-                    text = prepro_txt.split(" ")
-                    f.write("{}\t".format(txt))
-                    
-                    f.write("{}\t{}\n".format(idx_label_map[int(y_label)], y_prob))
-                except Exception as e:
-                    print("Exception: ...")
-                    print(e)
+        return y_preds, y_probs
                    

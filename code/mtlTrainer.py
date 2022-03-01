@@ -11,10 +11,10 @@ import utils
 import time
 
 
-class BaseModel(nn.Module):
+class MTLModel(nn.Module):
     """ base model """
     def __init__(self, bert_config = 'vinai/bertweet-base', exp_hidden_size = 64, cls_hidden_size = 64, num_classes = 6):
-        super(BaseModel, self).__init__()
+        super(MTLModel, self).__init__()
         self.base_model = AutoModel.from_pretrained(bert_config)
         self.exp_hidden_size = exp_hidden_size
         self.cls_hidden_size = cls_hidden_size 
@@ -50,7 +50,7 @@ class BaseModel(nn.Module):
         return cls_out, exp_out 
     
 
-class BertRMTL:
+class MTLTrainer:
     def __init__(self, data, cls_labels, exp_labels, args):
         self.args = args 
         self.tokenizer = AutoTokenizer.from_pretrained(args.model_config)
@@ -69,6 +69,7 @@ class BertRMTL:
     
     def fit(self, input_ids, attention_masks, cls_labels, exp_labels, cls_criterion, exp_criterion, exp_weight, batch_size):
         """fit model"""
+        self.model.train()
         total_loss = 0 
         epoch_indices = random.sample([i for i in range(len(input_ids))], len(input_ids))
         batch_num = 0 
@@ -103,7 +104,7 @@ class BertRMTL:
     
     def predict(self, input_ids, attention_masks, cls_labels=None, exp_labels=None, cls_criterion=None, exp_criterion=None, exp_weight=0.07, batch_size=128):
         """make prediction"""
-        # self.model.eval()
+        self.model.eval()
 
         cls_preds = []
         exp_preds = []
@@ -134,10 +135,11 @@ class BertRMTL:
                 cls_outs = cls_outs.max(dim = -1)
                 cls_pred_labels = cls_outs.indices.cpu()
                 cls_pred_probs = cls_outs.values.cpu()
-                exp_probs += exp_outs.cpu()
                 exp_outs = torch.round(exp_outs).long().cpu()  
-                cls_preds += cls_pred_labels
+                
+                exp_probs += exp_outs.cpu()
                 exp_preds += exp_outs
+                cls_preds += cls_pred_labels
                 cls_probs += cls_pred_probs
                 batch_num += 1  
 
@@ -153,7 +155,7 @@ class BertRMTL:
         train_cls_labels, valid_cls_labels, test_cls_labels = self.cls_labels[train_indices], self.cls_labels[valid_indices], self.cls_labels[test_indices]
 
         # initialize base model
-        self.model = BaseModel(bert_config = self.args.model_config, cls_hidden_size = self.args.cls_hidden_size, 
+        self.model = MTLModel(bert_config = self.args.model_config, cls_hidden_size = self.args.cls_hidden_size, 
                     exp_hidden_size = self.args.exp_hidden_size, num_classes = self.num_classes)
         self.model.to(self.args.device)
 
@@ -173,7 +175,7 @@ class BertRMTL:
         best_model_state_dict = None
         best_loss = float('inf')
         exp_weight = self.args.exp_weight
-        self.model.train()
+        # self.model.train()
         for epoch in range(self.args.n_epochs):
             begin_time = time.time()
             #fit model
@@ -269,7 +271,7 @@ class BertRMTL:
         exp_labels = self.exp_labels_mapping
         cls_labels = self.cls_labels
         # initialize base model
-        self.model = BaseModel(bert_config = self.args.model_config, cls_hidden_size = self.args.cls_hidden_size, 
+        self.model = MTLModel(bert_config = self.args.model_config, cls_hidden_size = self.args.cls_hidden_size, 
                     exp_hidden_size = self.args.exp_hidden_size, num_classes = self.num_classes)
         self.model.to(self.args.device)
 
@@ -322,42 +324,48 @@ class BertRMTL:
 
         return np.array(exp_pred_data), np.array(new_labels)
 
+    def load(self, saved_model_path = None):
+        try:
+            self.model = MTLModel(bert_config = self.args.model_config, cls_hidden_size = self.args.cls_hidden_size, 
+                        exp_hidden_size = self.args.exp_hidden_size, num_classes = self.num_classes)
+            self.model.load_state_dict(torch.load(saved_model_path))
+        
+        except Exception as e:
+            print("Exception")
+            print(e)
+        
 
-    def classify_new_data(self, idx_label_map = {}, saved_model_path = None,  new_data = None, output_path = ""):
+    def classify(self, new_data):
         """ classify new data """
-        if saved_model_path is None:
-            print("No input saved model!!!!!")
-            return 
-
-        self.model = BaseModel(bert_config = self.args.model_config, cls_hidden_size = self.args.cls_hidden_size, 
-                    exp_hidden_size = self.args.exp_hidden_size, num_classes = self.num_classes)
-        self.model.load_state_dict(torch.load(saved_model_path))
         self.model.to(self.args.device)
         self.model.eval()
         data = np.array([self.tokenizer.cls_token+" "+x+ " "+ self.tokenizer.sep_token for x in new_data])
         tokenized_data, input_ids, attention_masks, tokenized_data_slides = \
                         utils.tokenize_text(self.tokenizer, data, self.tokenizer.pad_token)
         
-        tokenized_data, input_ids = np.array(tokenized_data), torch.tensor(input_ids, dtype = torch.long)
-        attention_masks, tokenized_data_slides= torch.tensor(attention_masks, dtype = torch.long), np.array(tokenized_data_slides)
+        tokenized_data, input_ids = np.array(tokenized_data, dtype=object), torch.tensor(input_ids, dtype = torch.long)
+        attention_masks, tokenized_data_slides= torch.tensor(attention_masks, dtype = torch.long), np.array(tokenized_data_slides, dtype=object)
         cls_preds, exp_preds, cls_probs, exp_probs, _ = self.predict(self.input_ids, self.attention_masks, 
                     batch_size = self.args.test_batch_size)
 
         exp_preds = utils.max_pooling(exp_preds, tokenized_data_slides, data)
         exp_probs = utils.max_pooling(exp_probs, tokenized_data_slides, data, prob = True)
         
-        with open(output_path, "w") as f:
-            f.write("text\tpredicted_label\tpredicted_prob\texplanation\texplanation_prob\n")
-            for txt, prepro_txt, cls_label, cls_prob, exp_label, exp_prob  in zip(new_data, data, cls_preds, cls_probs, exp_preds, exp_probs):
-                try:
-                    text = prepro_txt.split(" ")
-                    f.write("{}\t".format(txt))
-                    pred_exp_text = ' '.join(text[i] for i in range(len(exp_label)) if (exp_label[i]==1))
- 
-                    pred_exp_text_with_prob = ' '.join(text[i]+"§§§"+str(exp_prob[i]) for i in range(len(exp_label)))
-
-                    f.write("{}\t{}\t{}\t{}\n".format(idx_label_map[int(cls_label)], cls_prob, pred_exp_text, pred_exp_text_with_prob))
-                except Exception as e:
-                    print("Exception: ...")
-                    print(e)
-                   
+        
+        exp_texts = []
+        exp_text_masked = []
+        exp_text_probs = []
+        for prepro_txt, exp_label, exp_prob in zip(data, exp_preds, exp_probs):
+            try:
+                text = prepro_txt.split(" ")
+                
+                pred_exp_text = ' '.join(text[i] for i in range(1, len(text) - 1) if (exp_label[i]==1))
+                pred_exp_text_masked = ' '.join(text[i] if (exp_label[i]==1) else "*" for i in range(1, len(text) - 1))
+                pred_exp_text_prob = ' '.join(text[i]+"§§§"+str(exp_prob[i]) for i in range(1, len(text)-1))
+                exp_texts.append(pred_exp_text)
+                exp_text_probs.append(pred_exp_text_prob)
+            except Exception as e:
+                print("Exception: ...")
+                print(e)
+        
+        return cls_preds, cls_probs, exp_texts, exp_text_masked, exp_text_probs
