@@ -61,9 +61,8 @@ class CLSTrainer:
 
     def fit(self, data, labels, batch_size, loss_func):
         """fit model"""
-        train_loss = 0
-
         self.model.train()
+        train_loss = 0
         epoch_indices = random.sample([i for i in range(len(data))], len(data))
         batch_num = 0
         for batch_start in range(0, len(data), batch_size):
@@ -122,7 +121,7 @@ class CLSTrainer:
         best_epoch = {} 
         best_model_state_dict = None 
         best_loss = float('inf')
-        # self.model.train()
+
         for epoch in range(self.args.n_epochs):
             begin_time = time.time()
             train_loss = self.fit(train_data, train_labels, self.args.train_batch_size, criterion)
@@ -140,7 +139,7 @@ class CLSTrainer:
                     best_model_state_dict = OrderedDict({k: v.cpu() for k, v in self.model.state_dict().items()})
                 if epoch - best_epoch['epoch']> self.args.patience:
                     break
-        # self.model.eval()
+
         print("+ Training ends!")
         print("+ Load best model {}---valid_loss: {}".format(best_epoch['epoch'], best_epoch['valid_loss']))
         self.model.load_state_dict(best_model_state_dict)
@@ -171,14 +170,14 @@ class CLSTrainer:
         criterion = torch.nn.CrossEntropyLoss()
 
         train_labels = torch.tensor(self.labels, dtype = torch.long).to(self.args.device)
-        self.model.train()
+        
         print("Training...")
         for epoch in range(self.args.n_epochs):
             begin_time = time.time()
             train_loss = self.fit(train_data, train_labels, self.args.train_batch_size, criterion)
 
             print("Epoch: %d, train loss: %.3f, time: %.3f" %(epoch, train_loss, time.time()-begin_time))
-        self.model.eval()
+
         _, y_pred, _ = self.predict(self.data, self.labels, criterion, batch_size = self.args.test_batch_size)
         print("++ Train CLS F1: {}".format(f1_score(self.labels, y_pred, average = 'macro')))
         
@@ -198,7 +197,7 @@ class CLSTrainer:
     def classify(self, new_data):
         data = np.array([self.tokenizer.cls_token +" " + x +" " + self.tokenizer.sep_token for x in new_data])
         self.model.to(self.args.device)
-        self.model.eval()
+        
         _, y_preds, y_probs = self.predict(self.data, batch_size = self.args.test_batch_size)
 
         return y_preds, y_probs

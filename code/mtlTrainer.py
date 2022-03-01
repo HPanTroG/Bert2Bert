@@ -175,7 +175,7 @@ class MTLTrainer:
         best_model_state_dict = None
         best_loss = float('inf')
         exp_weight = self.args.exp_weight
-        # self.model.train()
+        
         for epoch in range(self.args.n_epochs):
             begin_time = time.time()
             #fit model
@@ -208,7 +208,7 @@ class MTLTrainer:
         print("+ Load best model {}---valid_loss: {}".format(best_epoch['epoch'], best_epoch['valid_loss']))
         self.model.load_state_dict(best_model_state_dict)
         self.model.to(self.args.device)
-        self.model.eval()
+        
         # extract predicted results on train data
         train_cls_pred_labels, train_exp_pred_labels, _, _, _ = self.predict(train_input_ids, train_attention_masks, 
                     train_cls_labels, train_exp_labels, cls_criterion, exp_criterion, exp_weight, self.args.test_batch_size)
@@ -289,7 +289,7 @@ class MTLTrainer:
         
         
         exp_weight = self.args.exp_weight
-        self.model.train()
+        
         for epoch in range(self.args.n_epochs):
             begin_time = time.time()
             #fit model
@@ -297,7 +297,7 @@ class MTLTrainer:
                             exp_criterion, exp_weight, self.args.train_batch_size)
             print("Epoch: %d, train_loss: %.3f, time: %.3f" %(epoch, train_loss, time.time() - begin_time))
 
-        self.model.eval()       
+        
         cls_pred_labels, exp_pred_labels, _, _, _ = self.predict(self.input_ids, self.attention_masks, 
                     cls_labels, exp_labels, cls_criterion, exp_criterion, exp_weight, self.args.test_batch_size)
         exp_pred_labels = utils.max_pooling(exp_pred_labels, self.tokenized_data_slides, self.data)
@@ -338,7 +338,7 @@ class MTLTrainer:
     def classify(self, new_data):
         """ classify new data """
         self.model.to(self.args.device)
-        self.model.eval()
+        
         data = np.array([self.tokenizer.cls_token+" "+x+ " "+ self.tokenizer.sep_token for x in new_data])
         tokenized_data, input_ids, attention_masks, tokenized_data_slides = \
                         utils.tokenize_text(self.tokenizer, data, self.tokenizer.pad_token)
