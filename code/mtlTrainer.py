@@ -51,22 +51,24 @@ class MTLModel(nn.Module):
     
 
 class MTLTrainer:
-    def __init__(self, data, cls_labels, exp_labels, args):
+    def __init__(self, args, data = None, cls_labels= None, exp_labels = None):
         self.args = args 
         self.tokenizer = AutoTokenizer.from_pretrained(args.model_config)
-        self.data = np.array([self.tokenizer.cls_token + " " + x + " " + self.tokenizer.sep_token for x in data])
-        self.exp_labels = exp_labels 
-        self.num_classes = len(set(cls_labels))
+        
+        if data is not None:
+            self.data = np.array([self.tokenizer.cls_token + " " + x + " " + self.tokenizer.sep_token for x in data])
+            self.exp_labels = exp_labels 
+            self.num_classes = len(set(cls_labels))
 
-        #conver data to tensor
-        self.cls_labels = torch.tensor(cls_labels, dtype = torch.long)
-        self.tokenized_data, self.input_ids, self.attention_masks, self.tokenized_data_slides = \
-                        utils.tokenize_text(self.tokenizer, self.data, self.tokenizer.pad_token)
-        self.exp_labels_mapping = utils.map_exp_labels(self.tokenizer, self.data, exp_labels)
-        self.tokenized_data, self.input_ids = np.array(self.tokenized_data,dtype=object), torch.tensor(self.input_ids, dtype = torch.long)
-        self.attention_masks, self.tokenized_data_slides= torch.tensor(self.attention_masks, dtype = torch.long), np.array(self.tokenized_data_slides,dtype=object)
-        self.exp_labels_mapping = torch.tensor(self.exp_labels_mapping, dtype = torch.long)
-    
+            #conver data to tensor
+            self.cls_labels = torch.tensor(cls_labels, dtype = torch.long)
+            self.tokenized_data, self.input_ids, self.attention_masks, self.tokenized_data_slides = \
+                            utils.tokenize_text(self.tokenizer, self.data, self.tokenizer.pad_token)
+            self.exp_labels_mapping = utils.map_exp_labels(self.tokenizer, self.data, exp_labels)
+            self.tokenized_data, self.input_ids = np.array(self.tokenized_data,dtype=object), torch.tensor(self.input_ids, dtype = torch.long)
+            self.attention_masks, self.tokenized_data_slides= torch.tensor(self.attention_masks, dtype = torch.long), np.array(self.tokenized_data_slides,dtype=object)
+            self.exp_labels_mapping = torch.tensor(self.exp_labels_mapping, dtype = torch.long)
+        
     def fit(self, input_ids, attention_masks, cls_labels, exp_labels, cls_criterion, exp_criterion, exp_weight, batch_size):
         """fit model"""
         self.model.train()
@@ -327,7 +329,7 @@ class MTLTrainer:
     def load(self, saved_model_path = None):
         try:
             self.model = MTLModel(bert_config = self.args.model_config, cls_hidden_size = self.args.cls_hidden_size, 
-                        exp_hidden_size = self.args.exp_hidden_size, num_classes = self.num_classes)
+                        exp_hidden_size = self.args.exp_hidden_size, num_classes = len(self.args.labels))
             self.model.load_state_dict(torch.load(saved_model_path))
         
         except Exception as e:
@@ -345,12 +347,11 @@ class MTLTrainer:
         
         tokenized_data, input_ids = np.array(tokenized_data, dtype=object), torch.tensor(input_ids, dtype = torch.long)
         attention_masks, tokenized_data_slides= torch.tensor(attention_masks, dtype = torch.long), np.array(tokenized_data_slides, dtype=object)
-        cls_preds, exp_preds, cls_probs, exp_probs, _ = self.predict(self.input_ids, self.attention_masks, 
+        cls_preds, exp_preds, cls_probs, exp_probs, _ = self.predict(input_ids, attention_masks, 
                     batch_size = self.args.test_batch_size)
-
+ 
         exp_preds = utils.max_pooling(exp_preds, tokenized_data_slides, data)
         exp_probs = utils.max_pooling(exp_probs, tokenized_data_slides, data, prob = True)
-        
         
         exp_texts = []
         exp_text_masked = []
@@ -358,12 +359,12 @@ class MTLTrainer:
         for prepro_txt, exp_label, exp_prob in zip(data, exp_preds, exp_probs):
             try:
                 text = prepro_txt.split(" ")
-                
-                pred_exp_text = ' '.join(text[i] for i in range(1, len(text) - 1) if (exp_label[i]==1))
-                pred_exp_text_masked = ' '.join(text[i] if (exp_label[i]==1) else "*" for i in range(1, len(text) - 1))
-                pred_exp_text_prob = ' '.join(text[i]+"§§§"+str(exp_prob[i]) for i in range(1, len(text)-1))
-                exp_texts.append(pred_exp_text)
-                exp_text_probs.append(pred_exp_text_prob)
+                exp_text_i = ' '.join(text[i] for i in range(1, len(text) - 1) if (exp_label[i]==1))
+                exp_text_masked_i = ' '.join(text[i] if (exp_label[i]==1) else "*" for i in range(1, len(text) - 1))
+                pred_text_prob_i = ' '.join(text[i]+"§§§"+str(exp_prob[i]) for i in range(1, len(text)-1))
+                exp_texts.append(exp_text_i)
+                exp_text_masked.append(exp_text_masked_i)
+                exp_text_probs.append(pred_text_prob_i)
             except Exception as e:
                 print("Exception: ...")
                 print(e)

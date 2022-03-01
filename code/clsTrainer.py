@@ -24,12 +24,13 @@ class CLSModel(nn.Module):
         return outputs
 
 class CLSTrainer:
-    def __init__(self, data = None, labels = None, args = None):
+    def __init__(self, args, data = None, labels = None):
         self.args = args 
         self.tokenizer = AutoTokenizer.from_pretrained(self.args.model_config)
-        self.data = np.array(data)
-        self.labels = np.array(labels)
-        self.num_classes = len(set(labels))
+        if data is not None:
+            self.data = np.array(data)
+            self.labels = np.array(labels)
+            self.num_classes = len(set(labels))
         
     
     def predict(self, data, labels = None, loss_func = None, batch_size = 128):
@@ -39,7 +40,7 @@ class CLSTrainer:
         total_loss = 0 
         outputs = []
         output_probs = []
-
+        batch_num = 0
         with torch.no_grad():
             for batch_start in range(0, len(data), batch_size):
                 batch_end = min(batch_start+batch_size, len(data))
@@ -55,8 +56,8 @@ class CLSTrainer:
                 out = nn.Softmax(dim = -1)(out).max(dim = -1)
                 outputs += out.indices.cpu()
                 output_probs += out.values.cpu()
-            
-        loss = total_loss/len(data)
+                batch_num +=1 
+        loss = total_loss/batch_num
         return loss, outputs, output_probs 
 
     def fit(self, data, labels, batch_size, loss_func):
@@ -188,7 +189,7 @@ class CLSTrainer:
     
     def load(self, saved_model_path = None):
         try: 
-            self.model = CLSModel(self.args.model_config, num_classes = self.num_classes)
+            self.model = CLSModel(self.args.model_config, num_classes = len(self.args.labels))
             self.model.load_state_dict(torch.load(saved_model_path))
         except Exception as e:
             print("Exception")
@@ -198,7 +199,7 @@ class CLSTrainer:
         data = np.array([self.tokenizer.cls_token +" " + x +" " + self.tokenizer.sep_token for x in new_data])
         self.model.to(self.args.device)
         
-        _, y_preds, y_probs = self.predict(self.data, batch_size = self.args.test_batch_size)
+        _, y_preds, y_probs = self.predict(data, batch_size = self.args.test_batch_size)
 
         return y_preds, y_probs
                    

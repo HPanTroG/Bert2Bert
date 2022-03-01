@@ -55,11 +55,13 @@ if __name__ == "__main__":
             help = 'True: full data, False: only use the correct prediction from 1st phase for training in 2nd phase')
     parser.add_argument('-mode', type = str, default = 'eval', help='train: train model, eval:evaluate with n-folds, \
                                 predict: make prediction on new data')
+    parser.add_argument('-labels', type = list, default = ['injured_or_dead_people', 'affected_people_and_evacuations', \
+                        'infrastructure_and_utilities_damage', 'rescue_volunteering_and_donation_effort',  \
+                        'other_useful_information', 'not_related_or_irrelevant'])
     prepro_exp = 'prepro_exp'
     prepro_text = 'prepro_text'
     prepro_label = 'prepro_label'
-    labels = ['injured_or_dead_people', 'affected_people_and_evacuations', 'infrastructure_and_utilities_damage', \
-            'rescue_volunteering_and_donation_effort',  'other_useful_information', 'not_related_or_irrelevant']
+    
 
     args = parser.parse_args()
     
@@ -72,7 +74,7 @@ if __name__ == "__main__":
     data[prepro_exp] = data[prepro_exp].apply(lambda x: [y.strip() for y in x.split(args.sep_exp_token)])
     # preprocess text
     data[prepro_text] = data[args.text_col].apply(lambda x: utils.preprocess_text(x))
-    label_idx_map = {label:i for i, label in enumerate(labels)}
+    label_idx_map = {label:i for i, label in enumerate(args.labels)}
     idx_label_map = {idx: label for label, idx in label_idx_map.items()}
     data[prepro_label] = data[args.label_col].apply(lambda x: label_idx_map[x])
 
@@ -83,8 +85,8 @@ if __name__ == "__main__":
     text_data = np.array(data[prepro_text])
     exp_data = np.array(data[prepro_exp])
     cls_data = np.array(data[prepro_label])
-    mtlTrainer = MTLTrainer(text_data, cls_data, exp_data, args)
-    clsTrainer = CLSTrainer(text_data, cls_data, args)
+    mtlTrainer = MTLTrainer(args, text_data, cls_data, exp_data)
+    clsTrainer = CLSTrainer(args, text_data, cls_data)
 
 
     if args.mode == 'train':
@@ -115,15 +117,18 @@ if __name__ == "__main__":
         print("Load models...")
         mtlTrainer.load(args.saved_model_p1)
         clsTrainer.load(args.saved_model_p2)
+
+        print("Read new data...")
         new_data = []
         prepro_data = []
-        print("Read new data...")
         with open(args.input_new_data_path, "r") as f:
             for line in f.readlines():
                 new_data.append(line.strip())
                 prepro_data.append(utils.preprocess_text(line.strip()))
+
         _, _, exp_pred_data, exp_pred_masked, exp_pred_probs = mtlTrainer.classify(prepro_data)
         cls_pred_labels, cls_pred_probs = clsTrainer.classify(exp_pred_masked)
+
         print("Write outputs...")
         with open(args.output_new_data_path, "w") as f:
             f.write("text\tlabel\tprob\trationale_label\trationale_prob\n")
