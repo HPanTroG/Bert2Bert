@@ -26,7 +26,7 @@ torch.backends.cudnn.benchmark = False
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     
-    parser.add_argument('-input_path', type = str, default = '../data/nepal.csv')
+    parser.add_argument('-input_path', type = str, default = '../data/examples.csv')
     parser.add_argument('-saved_model_path', type = str, default = '../saved_models/')
     parser.add_argument('-random_state', type = int, default = 12)
     parser.add_argument('-model_config', type = str, default = 'vinai/bertweet-base')

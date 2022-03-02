@@ -73,7 +73,7 @@ class CLSTrainer:
             y_batch = labels[batch_indices]
             sents_tensor, masks_tensor, _ = utils.convert_sents_to_ids_tensor(self.tokenizer, X_batch, self.tokenizer.pad_token)
             output = self.model(input_ids = sents_tensor.to(self.args.device), attention_mask = masks_tensor.to(self.args.device))
-            self.model.zero_grad()
+            self.optimizer.zero_grad()
             
             loss = loss_func(output, y_batch)
             train_loss += loss.item()
