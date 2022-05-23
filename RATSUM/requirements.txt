@@ -1,0 +1,6 @@
+gurobipy==9.5.1
+nltk==3.5
+numpy==1.19.5
+scikit_learn==1.1.1
+textblob==0.17.1
+times==0.7

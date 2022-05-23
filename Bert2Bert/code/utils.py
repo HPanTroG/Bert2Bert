@@ -1,7 +1,8 @@
 import numpy as np 
 import re
 import torch
-from tweet_preprocessing import tokenizeRawTweetText
+# from tweet_preprocessing_old import tokenizeRawTweetText
+from tweet_preprocessing import normalizeTweet
 
 def convert_sents_to_ids_tensor(tokenizer, sents, pad_token = '<pad>'):
     
@@ -145,11 +146,17 @@ def max_pooling(y_values, data_slides, data, prob = False):
             print(e)
     return pooled_values
 
-def preprocess_text(text):
-    text = tokenizeRawTweetText(text)
-    text = text.replace("\\n", " ")
-    text = re.sub("^`|^\'|^\"|\'$|\"$|^(rt )", '', text).strip()
-    text = re.sub("^: ", '', text)
-    text = re.sub(" +", ' ', text).strip()
-    # text = re.sub(" ️ ", ' ', text).strip()
+# def preprocess_text(text):
+#     text = tokenizeRawTweetText(text)
+#     text = text.replace("\\n", " ")
+#     text = re.sub("^`|^\'|^\"|\'$|\"$|^(rt )", '', text).strip()
+#     text = re.sub("^: ", '', text)
+#     text = re.sub(" +", ' ', text).strip()
+#     # text = re.sub(" ️ ", ' ', text).strip()
+#     return text
+
+def preprocess_text(text, lower = True):
+    text = normalizeTweet(text)
+    if lower == True:
+        text = text.lower()
     return text

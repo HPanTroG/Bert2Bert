@@ -8,6 +8,7 @@ import torch.nn as nn
 import random
 import utils
 import time
+import sys
 
 
 class CLSModel(nn.Module):
@@ -155,7 +156,12 @@ class CLSTrainer:
         self.model.cpu()
     
 
-    def train(self, saved_model_path = None):
+    def train(self, data = None, labels = None, saved_model_path = None):
+        if data is not None:
+            self.data = np.array(data)
+            self.labels = np.array(labels)
+            self.num_classes = len(set(labels))
+
         train_data = np.array([self.tokenizer.cls_token +" " + x +" " + self.tokenizer.sep_token for x in self.data])
         self.model = CLSModel(self.args.model_config, num_classes = self.num_classes)
         self.optimizer = AdamW(self.model.parameters(), self.args.lr, eps = 1e-8)
@@ -187,15 +193,19 @@ class CLSTrainer:
             print("Save model to path: {}".format(saved_model_path))
             torch.save(self.model.state_dict(), saved_model_path)
     
-    def load(self, saved_model_path = None):
+    def load(self, num_classes = 6, saved_model_path = None):
+        if saved_model_path == None:
+            print("Please enter the model path...")
+            sys.exit(-1)
         try: 
-            self.model = CLSModel(self.args.model_config, num_classes = len(self.args.labels))
+            self.model = CLSModel(self.args.model_config, num_classes = num_classes)
             self.model.load_state_dict(torch.load(saved_model_path))
         except Exception as e:
             print("Exception")
             print(e)
 
     def classify(self, new_data):
+
         data = np.array([self.tokenizer.cls_token +" " + x +" " + self.tokenizer.sep_token for x in new_data])
         self.model.to(self.args.device)
         

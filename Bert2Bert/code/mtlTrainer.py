@@ -9,6 +9,7 @@ import numpy as np
 import random
 import utils
 import time
+import sys
 
 
 class MTLModel(nn.Module):
@@ -326,10 +327,13 @@ class MTLTrainer:
 
         return np.array(exp_pred_data), np.array(new_labels)
 
-    def load(self, saved_model_path = None):
+    def load(self, num_classes = 6, saved_model_path = None):
+        if saved_model_path == None:
+            print("Please enter the model path...")
+            sys.exit(-1)
         try:
             self.model = MTLModel(bert_config = self.args.model_config, cls_hidden_size = self.args.cls_hidden_size, 
-                        exp_hidden_size = self.args.exp_hidden_size, num_classes = len(self.args.labels))
+                        exp_hidden_size = self.args.exp_hidden_size, num_classes = num_classes)
             self.model.load_state_dict(torch.load(saved_model_path))
         
         except Exception as e:
@@ -339,6 +343,7 @@ class MTLTrainer:
 
     def classify(self, new_data):
         """ classify new data """
+       
         self.model.to(self.args.device)
         
         data = np.array([self.tokenizer.cls_token+" "+x+ " "+ self.tokenizer.sep_token for x in new_data])
