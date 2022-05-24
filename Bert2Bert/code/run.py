@@ -53,7 +53,7 @@ if __name__ == "__main__":
     parser.add_argument('-full_train', type = str, default = True, 
             help = 'True: full data, False: only use the correct prediction from 1st phase for training in 2nd phase')
     
-    parser.add_argument('-mode', type = str, default = 'prediction', help='train: train model, eval:evaluate with n-folds, \
+    parser.add_argument('-mode', type = str, default = 'train', help='train: train model, eval:evaluate with n-folds, \
                                 prediction: make prediction on new data')
 
     parser.add_argument('-event_type', type = str, default = 'quake')
